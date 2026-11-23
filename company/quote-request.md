@@ -8,6 +8,19 @@
 
 各社のページにある問い合わせフォームかメールに、下の文面をそのまま貼る。ロゴ画像（brand/merry-the-south-3line-c-tight.png）を添付する。
 
+## 業者のページ（検索結果にあったページ。2026年11月23日時点。問い合わせ先は各ページで確認）
+- クラTジャパン（フォーカス）ニット帽：https://www.forcus.co.jp/products/category/012/sub/136
+- 刺繍プリント.com ニット帽：https://www.sisyuu-print.com/g54/310/
+- 刺繍プリント.com 持ち込み加工：https://www.sisyuu-print.com/bring.php
+- マーキングラボ ニット帽の刺繍ガイド：https://www.marking-lab.net/column_select.php?id=300
+- ジェットチョップ キャップ：https://www.jetchop.co.jp/cap/
+- オリジナルプリント.jp 刺繍：https://originalprint.jp/store.php/page/kakoEmbroidery
+- ANANMARK 持ち込み刺繍（ニット帽）：https://anan-mark.com/workman-3msutorecchishinsaretonitto-bini-shishuu/
+- ORILAB 代行出荷（直送）：https://original-goods.orilab.jp/info/cyokusou
+- UP-T 個人向けグッズ制作の解説：https://up-t.jp/news/1190
+- Printful 日本からのドロップシッピング：https://www.printful.com/jp/dropshipping-japan
+- TransMoko ニット帽OEM：https://transmoko.com/knit-hat-oem/
+
 ## 文面
 
 件名：ニット帽への刺繍（1個から）のお見積りと、ご対応についてのご相談
