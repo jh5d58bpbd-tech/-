@@ -1,0 +1,687 @@
+<title>現場日報帳</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho+B1:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 墨出しの図面のような静かな面。上に帳簿名とタブ、下は「入力」と「一覧」の2列（スマホは1列）。数字は等幅で右そろえ。 */
+:root {
+  --bg: #eceeeb;          /* モルタルの灰（わずかに緑寄り） */
+  --panel: #f8f9f7;
+  --ink: #1d2422;
+  --muted: #5f6a66;
+  --line: #cfd5d1;
+  --accent: #2d527c;      /* 藍 */
+  --accent-soft: #dfe7f0;
+  --good: #2f6b45;
+  --bad: #a3342b;
+  --warn: #8a6410;
+  --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a19; --panel: #1f2422; --ink: #e6ebe8; --muted: #9aa5a0; --line: #34403b;
+  --accent: #8fb3dc; --accent-soft: #233244; --good: #79c08f; --bad: #e58a80; --warn: #d9b25a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #161a19; --panel: #1f2422; --ink: #e6ebe8; --muted: #9aa5a0; --line: #34403b;
+  --accent: #8fb3dc; --accent-soft: #233244; --good: #79c08f; --bad: #e58a80; --warn: #d9b25a; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.6 }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 56px }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 10px }
+.brand h1 { font-family: var(--display); font-size: 1.9rem; margin: 0; letter-spacing: .08em; line-height: 1.2 }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: .82rem; letter-spacing: .04em }
+nav.tabs { display: flex; gap: 4px }
+nav.tabs a { text-decoration: none; color: var(--muted); padding: 6px 14px; border-radius: var(--r) var(--r) 0 0; font-weight: 500; letter-spacing: .1em }
+nav.tabs a[aria-current="page"] { color: var(--panel); background: var(--ink) }
+nav.tabs a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.status { margin: 10px 0 0; font-size: .82rem; color: var(--muted); min-height: 1.3em }
+.status.err { color: var(--bad) }
+
+section.view { margin-top: 22px }
+.cols { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr) } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px }
+.panel h2, h2.sec { font-size: 1.05rem; margin: 0 0 12px; letter-spacing: .06em; text-wrap: balance }
+h3 { font-size: .9rem; margin: 18px 0 8px; letter-spacing: .08em; color: var(--muted); font-weight: 700 }
+.lbl { display: block; font-size: .78rem; color: var(--muted); letter-spacing: .06em; margin-bottom: 3px }
+.field { display: flex; flex-direction: column; min-width: 0 }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+.stack { display: flex; flex-direction: column; gap: 10px }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0 }
+textarea { min-height: 60px; resize: vertical }
+input[type="number"], .num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right }
+.rows { display: flex; flex-direction: column; gap: 6px }
+.row { display: grid; gap: 6px; align-items: center }
+.row.w { grid-template-columns: minmax(0, 1.6fr) minmax(0, .7fr) minmax(0, 1fr) 28px }
+.row.e { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 28px }
+.rowhead { font-size: .72rem; color: var(--muted); letter-spacing: .05em }
+button { font: inherit; cursor: pointer; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 14px }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 700; letter-spacing: .1em }
+button.ghost { background: transparent; border-style: dashed; color: var(--accent); font-size: .85rem; padding: 5px 10px }
+button.x { padding: 0; width: 28px; height: 28px; line-height: 1; color: var(--muted); background: transparent }
+button.danger { color: var(--bad); border-color: var(--bad); background: transparent }
+button.link { border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline; text-underline-offset: 3px }
+button:disabled { opacity: .5; cursor: not-allowed }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px }
+.sum { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .88rem }
+.sum dt { color: var(--muted) }
+.sum dd { margin: 0; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums }
+.sum .tot { font-weight: 700; color: var(--ink) }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin-bottom: 12px }
+.toolbar .field { width: auto }
+.day { margin-bottom: 18px }
+.day > .dhead { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: .85rem; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 3px; margin-bottom: 8px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 8px }
+.card .ctop { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline }
+.card .site { font-weight: 700; font-size: 1rem }
+.card .meta { color: var(--muted); font-size: .8rem }
+.card ul { list-style: none; margin: 6px 0 0; padding: 0; font-size: .86rem }
+.card li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dotted var(--line); padding: 2px 0 }
+.card li span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap }
+.card .note { margin: 6px 0 0; font-size: .85rem; white-space: pre-wrap; color: var(--muted) }
+.card .cfoot { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: space-between; align-items: center; margin-top: 8px; font-size: .82rem }
+.pill { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; letter-spacing: .05em; white-space: nowrap }
+.pill.go { color: var(--accent) }
+.pill.done { color: var(--muted) }
+.pill.mi { color: var(--warn) }
+.pill.sei { color: var(--good) }
+.empty { border: 1px dashed var(--line); border-radius: var(--r); padding: 22px; color: var(--muted); font-size: .9rem; text-align: left }
+.empty b { color: var(--ink) }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel) }
+table { border-collapse: collapse; width: 100%; font-size: .86rem; min-width: 760px }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap }
+th { font-size: .74rem; color: var(--muted); letter-spacing: .06em; font-weight: 500; background: var(--bg) }
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums }
+tr.click { cursor: pointer }
+tr.click:hover td { background: var(--accent-soft) }
+tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
+.pos { color: var(--good) } .neg { color: var(--bad) }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px }
+.kpi .k { font-size: .74rem; color: var(--muted); letter-spacing: .06em }
+.kpi .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 500 }
+.kpi .s { font-size: .75rem; color: var(--muted) }
+
+.sitehead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 14px }
+.sitehead h2 { font-family: var(--display); font-size: 1.5rem; margin: 0; letter-spacing: .06em }
+.doclist .card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center }
+.doclist .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right }
+.hint { font-size: .78rem; color: var(--muted); margin: 6px 0 0 }
+.confirm { display: inline-flex; gap: 6px; align-items: center; font-size: .8rem }
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr } .brand h1 { font-size: 1.6rem } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>現場日報帳</h1>
+      <p>日報・外注人工・諸経費・見積と請求をひとつに。金額はすべて税抜で入力します。</p>
+    </div>
+    <nav class="tabs" aria-label="画面切り替え">
+      <a href="#nippo" data-view="nippo">日報</a>
+      <a href="#genba" data-view="genba">現場</a>
+      <a href="#shushi" data-view="shushi">収支</a>
+    </nav>
+  </header>
+  <p class="status" id="status" role="status">読み込み中…</p>
+
+  <!-- 日報 -->
+  <section class="view" id="v-nippo">
+    <div class="cols">
+      <form class="panel" id="rform" autocomplete="off">
+        <h2 id="rformTitle">日報を書く</h2>
+        <div class="stack">
+          <div class="grid2">
+            <label class="field"><span class="lbl">日付</span><input type="date" id="r-date" required></label>
+            <label class="field"><span class="lbl">記入者</span><input type="text" id="r-author" placeholder="例：山田"></label>
+          </div>
+          <label class="field"><span class="lbl">現場名（同じ名前の日報は同じ現場にまとまります）</span>
+            <input type="text" id="r-site" list="siteNames" required placeholder="例：〇〇様邸 LDK改装"></label>
+          <datalist id="siteNames"></datalist>
+          <label class="field"><span class="lbl">作業内容</span><input type="text" id="r-work" placeholder="例：クロス張替え・床CF"></label>
+        </div>
+
+        <h3>外注（業者・人工・単価）</h3>
+        <div class="row w rowhead"><span>業者名</span><span>人数</span><span>単価（円/人）</span><span></span></div>
+        <div class="rows" id="wrows"></div>
+        <button type="button" class="ghost" id="addW">＋ 外注を追加</button>
+
+        <h3>諸経費</h3>
+        <div class="row e rowhead"><span>項目</span><span>金額（円）</span><span></span></div>
+        <div class="rows" id="erows"></div>
+        <button type="button" class="ghost" id="addE">＋ 経費を追加</button>
+
+        <h3>メモ</h3>
+        <textarea id="r-note" placeholder="段取り・申し送りなど"></textarea>
+
+        <dl class="sum">
+          <dt>外注 人工</dt><dd id="s-n">0 人工</dd>
+          <dt>外注費</dt><dd id="s-w">¥0</dd>
+          <dt>諸経費</dt><dd id="s-e">¥0</dd>
+          <dt class="tot">この日の原価</dt><dd class="tot" id="s-t">¥0</dd>
+        </dl>
+        <div class="actions">
+          <button type="submit" class="primary" id="rsave">日報を保存</button>
+          <button type="button" id="rcancel" hidden>編集をやめる</button>
+          <span class="hint" id="rmsg"></span>
+        </div>
+      </form>
+
+      <div>
+        <div class="toolbar">
+          <label class="field"><span class="lbl">月</span><input type="month" id="f-month"></label>
+          <label class="field"><span class="lbl">現場で絞る</span><select id="f-site"><option value="">すべての現場</option></select></label>
+        </div>
+        <div id="rlist"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 現場 -->
+  <section class="view" id="v-genba" hidden>
+    <div id="siteIndex"></div>
+    <div id="siteDetail" hidden></div>
+  </section>
+
+  <!-- 収支 -->
+  <section class="view" id="v-shushi" hidden>
+    <div class="kpis" id="kpis"></div>
+    <h2 class="sec">現場ごとの収支</h2>
+    <div class="tablewrap"><table id="tSites"></table></div>
+    <p class="hint">粗利＝請求額 −（外注費＋諸経費）。請求がまだの現場は、見積額で「見込み粗利」を出します。</p>
+    <h2 class="sec" style="margin-top:26px">月ごとの収支</h2>
+    <div class="tablewrap"><table id="tMonths"></table></div>
+    <p class="hint">外注費・経費は日報の日付、売上は請求書の日付で月に振り分けます。</p>
+    <div class="actions" id="csvBox">
+      <button type="button" id="csvSites">現場ごとの集計を CSV で保存</button>
+      <button type="button" id="csvLines">日報の明細を CSV で保存</button>
+      <span class="hint" id="csvMsg"></span>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const num = v => { const n = Number(String(v ?? "").replace(/[,，¥円\s]/g, "")); return Number.isFinite(n) ? n : 0; };
+  const yen = n => (n < 0 ? "−¥" : "¥") + Math.abs(Math.round(n || 0)).toLocaleString("ja-JP");
+  const nin = n => (Math.round((n || 0) * 10) / 10).toLocaleString("ja-JP") + " 人工";
+  const pct = (a, b) => b ? (Math.round(a / b * 1000) / 10).toFixed(1) + "%" : "—";
+  const norm = s => String(s || "").trim().replace(/\s+/g, " ");
+  const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const WD = ["日", "月", "火", "水", "木", "金", "土"];
+  const fmtDay = iso => { const d = new Date(iso + "T00:00:00"); return isNaN(d) ? iso : `${iso.replace(/-/g, ".")}（${WD[d.getDay()]}）`; };
+  const status = (msg, err) => { const el = $("#status"); el.textContent = msg; el.classList.toggle("err", !!err); };
+
+  // ---------- state ----------
+  let db = null, assets = null, downloads = null, canWrite = true;
+  const S = { sites: [], reports: [], docs: [] };
+  const loaded = { sites: false, reports: false, docs: false };
+  let editingId = null, openSiteId = null, pendingDelete = null;
+
+  const siteById = id => S.sites.find(s => s.id === id);
+  const siteName = r => (siteById(r.siteId)?.name) || r.siteName || "（現場名なし）";
+  const rTotals = r => {
+    const w = (r.workers || []).reduce((a, x) => ({ n: a.n + num(x.count), c: a.c + num(x.count) * num(x.price) }), { n: 0, c: 0 });
+    const e = (r.expenses || []).reduce((a, x) => a + num(x.amount), 0);
+    return { n: w.n, w: w.c, e, t: w.c + e };
+  };
+  const siteTotals = id => {
+    const rs = S.reports.filter(r => r.siteId === id);
+    const t = rs.reduce((a, r) => { const x = rTotals(r); return { n: a.n + x.n, w: a.w + x.w, e: a.e + x.e }; }, { n: 0, w: 0, e: 0 });
+    const ds = S.docs.filter(d => d.siteId === id);
+    const est = ds.filter(d => d.kind === "見積").reduce((a, d) => a + num(d.amount), 0);
+    const inv = ds.filter(d => d.kind === "請求").reduce((a, d) => a + num(d.amount), 0);
+    const cost = t.w + t.e;
+    const days = new Set(rs.map(r => r.date)).size;
+    return { ...t, cost, est, inv, days, reports: rs.length, profit: inv - cost, forecast: est - cost, hasInv: ds.some(d => d.kind === "請求"), hasEst: ds.some(d => d.kind === "見積") };
+  };
+
+  // ---------- routing ----------
+  const VIEWS = ["nippo", "genba", "shushi"];
+  function route() {
+    const h = location.hash.replace("#", "");
+    const v = VIEWS.includes(h) ? h : "nippo";
+    VIEWS.forEach(x => { $("#v-" + x).hidden = x !== v; });
+    document.querySelectorAll("nav.tabs a").forEach(a => { if (a.dataset.view === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    if (v !== "genba") openSiteId = null;
+    renderAll();
+  }
+  window.addEventListener("hashchange", route);
+
+  // ---------- form rows ----------
+  function addWorkerRow(w = {}) {
+    const row = document.createElement("div");
+    row.className = "row w";
+    row.innerHTML = `<input type="text" class="w-name" placeholder="例：〇〇内装" aria-label="業者名">
+      <input type="number" class="w-count" min="0" step="0.5" inputmode="decimal" placeholder="1" aria-label="人数">
+      <input type="number" class="w-price" min="0" step="500" inputmode="numeric" placeholder="25000" aria-label="単価">
+      <button type="button" class="x" aria-label="この行を消す">×</button>`;
+    $(".w-name", row).value = w.name || ""; $(".w-count", row).value = w.count ?? ""; $(".w-price", row).value = w.price ?? "";
+    $(".x", row).onclick = () => { row.remove(); calcForm(); };
+    $("#wrows").append(row);
+  }
+  function addExpenseRow(e = {}) {
+    const row = document.createElement("div");
+    row.className = "row e";
+    row.innerHTML = `<input type="text" class="e-item" placeholder="例：駐車場・資材・ガソリン" aria-label="項目">
+      <input type="number" class="e-amt" min="0" step="100" inputmode="numeric" placeholder="1500" aria-label="金額">
+      <button type="button" class="x" aria-label="この行を消す">×</button>`;
+    $(".e-item", row).value = e.item || ""; $(".e-amt", row).value = e.amount ?? "";
+    $(".x", row).onclick = () => { row.remove(); calcForm(); };
+    $("#erows").append(row);
+  }
+  function readForm() {
+    const workers = [...document.querySelectorAll("#wrows .row")].map(r => ({ name: norm($(".w-name", r).value), count: num($(".w-count", r).value), price: num($(".w-price", r).value) })).filter(w => w.name || w.count || w.price);
+    const expenses = [...document.querySelectorAll("#erows .row")].map(r => ({ item: norm($(".e-item", r).value), amount: num($(".e-amt", r).value) })).filter(e => e.item || e.amount);
+    return { date: $("#r-date").value, author: norm($("#r-author").value), siteName: norm($("#r-site").value), work: norm($("#r-work").value), note: $("#r-note").value.trim(), workers, expenses };
+  }
+  function calcForm() {
+    const t = rTotals(readForm());
+    $("#s-n").textContent = nin(t.n); $("#s-w").textContent = yen(t.w); $("#s-e").textContent = yen(t.e); $("#s-t").textContent = yen(t.t);
+  }
+  function resetForm(keep = {}) {
+    editingId = null;
+    $("#rform").reset();
+    $("#r-date").value = keep.date || today();
+    $("#r-author").value = keep.author || "";
+    $("#wrows").innerHTML = ""; $("#erows").innerHTML = "";
+    addWorkerRow(); addExpenseRow();
+    $("#rformTitle").textContent = "日報を書く";
+    $("#rsave").textContent = "日報を保存";
+    $("#rcancel").hidden = true;
+    calcForm();
+  }
+  function loadIntoForm(r) {
+    editingId = r.id;
+    $("#r-date").value = r.date || ""; $("#r-author").value = r.author || ""; $("#r-site").value = siteName(r);
+    $("#r-work").value = r.work || ""; $("#r-note").value = r.note || "";
+    $("#wrows").innerHTML = ""; $("#erows").innerHTML = "";
+    (r.workers?.length ? r.workers : [{}]).forEach(addWorkerRow);
+    (r.expenses?.length ? r.expenses : [{}]).forEach(addExpenseRow);
+    $("#rformTitle").textContent = `日報を直す（${fmtDay(r.date)}）`;
+    $("#rsave").textContent = "変更を保存";
+    $("#rcancel").hidden = false;
+    calcForm();
+    location.hash = "nippo";
+    $("#rform").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function ensureSite(name) {
+    const hit = S.sites.find(s => norm(s.name) === name);
+    if (hit) return hit.id;
+    const ref = db.collection("sites").doc();
+    await ref.set({ name, client: "", status: "進行中", createdAt: new Date().toISOString() });
+    return ref.id;
+  }
+
+  $("#rform").addEventListener("input", calcForm);
+  $("#addW").onclick = () => addWorkerRow();
+  $("#addE").onclick = () => addExpenseRow();
+  $("#rcancel").onclick = () => resetForm();
+  $("#rform").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const f = readForm(), msg = $("#rmsg");
+    if (!db) { msg.textContent = "保存先につながっていません。再読み込みしてください。"; return; }
+    if (!f.date || !f.siteName) { msg.textContent = "日付と現場名を入れてください。"; return; }
+    $("#rsave").disabled = true; msg.textContent = "保存しています…";
+    try {
+      const siteId = await ensureSite(f.siteName);
+      const prev = editingId ? S.reports.find(r => r.id === editingId) : null;
+      const body = { ...f, siteId, createdAt: prev?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+      if (editingId) await db.doc("reports/" + editingId).set(body);
+      else await db.collection("reports").doc().set(body);
+      msg.textContent = editingId ? "変更を保存しました。" : "日報を保存しました。";
+      resetForm({ date: f.date, author: f.author });
+    } catch (e) {
+      msg.textContent = e?.code === "invalid_argument" ? "この画面では保存できない権限です。共有の権限を確認してください。" : e?.code === "quota_exceeded" ? "保存できる件数の上限に達しました。" : "保存できませんでした。少し待ってからもう一度押してください。";
+    } finally { $("#rsave").disabled = false; }
+  });
+
+  $("#f-month").addEventListener("input", renderReports);
+  $("#f-site").addEventListener("change", renderReports);
+
+  // ---------- render: 日報一覧 ----------
+  function renderSiteOptions() {
+    const names = [...S.sites].sort((a, b) => (a.status === "完了") - (b.status === "完了") || a.name.localeCompare(b.name, "ja"));
+    const dl = $("#siteNames"); dl.innerHTML = "";
+    names.forEach(s => { const o = document.createElement("option"); o.value = s.name; dl.append(o); });
+    const sel = $("#f-site"), cur = sel.value;
+    sel.innerHTML = '<option value="">すべての現場</option>';
+    names.forEach(s => { const o = document.createElement("option"); o.value = s.id; o.textContent = s.name; sel.append(o); });
+    sel.value = names.some(s => s.id === cur) ? cur : "";
+  }
+
+  function reportCard(r, showSite = true) {
+    const t = rTotals(r);
+    const el = document.createElement("article"); el.className = "card";
+    const lines = [
+      ...(r.workers || []).map(w => `<li><span>外注｜${esc(w.name || "業者名なし")}　${esc(w.count)}人 × ${yen(num(w.price))}</span><span>${yen(num(w.count) * num(w.price))}</span></li>`),
+      ...(r.expenses || []).map(e => `<li><span>経費｜${esc(e.item || "項目なし")}</span><span>${yen(num(e.amount))}</span></li>`)
+    ].join("");
+    el.innerHTML = `<div class="ctop">
+        ${showSite ? `<span class="site">${esc(siteName(r))}</span>` : `<span class="site">${esc(fmtDay(r.date))}</span>`}
+        <span class="meta">${esc(r.work || "")}${r.author ? "　記入：" + esc(r.author) : ""}</span></div>
+      ${lines ? `<ul>${lines}</ul>` : ""}
+      ${r.note ? `<p class="note">${esc(r.note)}</p>` : ""}
+      <div class="cfoot"><span>${nin(t.n)}　原価 <b class="num">${yen(t.t)}</b></span>
+        <span class="ops"><button type="button" class="link" data-act="edit">直す</button>　<span class="del"></span></span></div>`;
+    $('[data-act="edit"]', el).onclick = () => loadIntoForm(r);
+    const del = $(".del", el);
+    const paint = () => {
+      del.innerHTML = "";
+      if (pendingDelete === r.id) {
+        const box = document.createElement("span"); box.className = "confirm";
+        box.innerHTML = `本当に消しますか？ <button type="button" class="danger">消す</button><button type="button">やめる</button>`;
+        const [yes, no] = box.querySelectorAll("button");
+        yes.onclick = async () => { yes.disabled = true; try { await db.doc("reports/" + r.id).delete(); if (editingId === r.id) resetForm(); } catch { status("削除できませんでした。権限を確認してください。", true); } pendingDelete = null; };
+        no.onclick = () => { pendingDelete = null; paint(); };
+        del.append(box);
+      } else {
+        const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.textContent = "消す";
+        b.onclick = () => { pendingDelete = r.id; paint(); };
+        del.append(b);
+      }
+    };
+    paint();
+    return el;
+  }
+
+  function renderReports() {
+    const box = $("#rlist"); box.innerHTML = "";
+    const m = $("#f-month").value, sid = $("#f-site").value;
+    const rs = S.reports.filter(r => (!m || (r.date || "").startsWith(m)) && (!sid || r.siteId === sid))
+      .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || "").localeCompare(a.createdAt || ""));
+    if (!loaded.reports) { box.innerHTML = '<div class="empty">日報を読み込んでいます…</div>'; return; }
+    if (!rs.length) {
+      box.innerHTML = S.reports.length
+        ? '<div class="empty">この条件の日報はありません。月や現場の絞り込みを変えてみてください。</div>'
+        : '<div class="empty"><b>まだ日報がありません。</b><br>左の欄に日付・現場名・外注の人数と単価・諸経費を入れて「日報を保存」を押すと、ここに日ごとに並びます。同じ現場名の日報は「現場」タブで1つにまとまり、人工と外注費が自動で合計されます。</div>';
+      return;
+    }
+    const tot = rs.reduce((a, r) => { const t = rTotals(r); return { n: a.n + t.n, t: a.t + t.t }; }, { n: 0, t: 0 });
+    const head = document.createElement("p"); head.className = "hint"; head.style.margin = "0 0 10px";
+    head.textContent = `${rs.length} 件　外注 ${nin(tot.n)}　原価合計 ${yen(tot.t)}`;
+    box.append(head);
+    const byDay = {};
+    rs.forEach(r => (byDay[r.date] ||= []).push(r));
+    Object.keys(byDay).sort().reverse().forEach(d => {
+      const g = document.createElement("div"); g.className = "day";
+      const dt = byDay[d].reduce((a, r) => a + rTotals(r).t, 0);
+      g.innerHTML = `<div class="dhead"><span>${esc(fmtDay(d))}</span><span>${yen(dt)}</span></div>`;
+      byDay[d].forEach(r => g.append(reportCard(r)));
+      box.append(g);
+    });
+  }
+
+  // ---------- render: 現場 ----------
+  function renderSiteIndex() {
+    const box = $("#siteIndex");
+    box.hidden = !!openSiteId; $("#siteDetail").hidden = !openSiteId;
+    if (openSiteId) { renderSiteDetail(); return; }
+    box.innerHTML = "";
+    const h = document.createElement("h2"); h.className = "sec"; h.textContent = "現場一覧"; box.append(h);
+    if (!S.sites.length) {
+      box.insertAdjacentHTML("beforeend", '<div class="empty"><b>まだ現場がありません。</b><br>日報を保存すると、その現場名でここに現場が作られます。現場を開くと、かかった人工・外注費・諸経費の合計と、見積書・請求書の添付、収支が見られます。</div>');
+      return;
+    }
+    const wrap = document.createElement("div"); wrap.className = "tablewrap";
+    const rows = [...S.sites].sort((a, b) => (a.status === "完了") - (b.status === "完了") || (b.createdAt || "").localeCompare(a.createdAt || ""))
+      .map(s => { const t = siteTotals(s.id); return `<tr class="click" data-id="${esc(s.id)}" tabindex="0">
+        <td><b>${esc(s.name)}</b>${s.client ? `<br><span class="meta" style="color:var(--muted);font-size:.78rem">${esc(s.client)}</span>` : ""}</td>
+        <td><span class="pill ${s.status === "完了" ? "done" : "go"}">${esc(s.status || "進行中")}</span></td>
+        <td class="n">${t.days} 日</td><td class="n">${nin(t.n)}</td><td class="n">${yen(t.w)}</td><td class="n">${yen(t.e)}</td>
+        <td class="n">${t.hasInv ? yen(t.inv) : t.hasEst ? `<span class="pill mi">見積</span> ${yen(t.est)}` : "—"}</td>
+        <td class="n ${(t.hasInv ? t.profit : t.forecast) < 0 ? "neg" : ""}">${t.hasInv ? yen(t.profit) : t.hasEst ? yen(t.forecast) : "—"}</td></tr>`; }).join("");
+    wrap.innerHTML = `<table><thead><tr><th>現場名</th><th>状態</th><th class="n">稼働日</th><th class="n">外注人工</th><th class="n">外注費</th><th class="n">諸経費</th><th class="n">請求額</th><th class="n">粗利</th></tr></thead><tbody>${rows}</tbody></table>`;
+    wrap.querySelectorAll("tr.click").forEach(tr => {
+      const open = () => { openSiteId = tr.dataset.id; renderSiteIndex(); window.scrollTo({ top: 0 }); };
+      tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); };
+    });
+    box.append(wrap);
+    box.insertAdjacentHTML("beforeend", '<p class="hint">行を押すと、その現場の日報・見積書・請求書が開きます。</p>');
+  }
+
+  function renderSiteDetail() {
+    const s = siteById(openSiteId), box = $("#siteDetail");
+    if (!s) { openSiteId = null; renderSiteIndex(); return; }
+    const t = siteTotals(s.id);
+    const ds = S.docs.filter(d => d.siteId === s.id).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const rs = S.reports.filter(r => r.siteId === s.id).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    // 業者ごとの内訳
+    const byVendor = {};
+    rs.forEach(r => (r.workers || []).forEach(w => { const k = w.name || "業者名なし"; byVendor[k] ||= { n: 0, c: 0 }; byVendor[k].n += num(w.count); byVendor[k].c += num(w.count) * num(w.price); }));
+    const prof = t.hasInv ? t.profit : t.forecast;
+
+    box.innerHTML = `
+      <p><button type="button" class="link" id="back">← 現場一覧へ戻る</button></p>
+      <div class="sitehead">
+        <div><h2>${esc(s.name)}</h2><span class="meta" style="color:var(--muted)">${rs.length ? `${esc(fmtDay(rs[rs.length - 1].date))} 〜 ${esc(fmtDay(rs[0].date))}` : "日報なし"}</span></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">外注 人工</div><div class="v">${nin(t.n)}</div><div class="s">稼働 ${t.days} 日・日報 ${t.reports} 件</div></div>
+        <div class="kpi"><div class="k">外注費</div><div class="v">${yen(t.w)}</div><div class="s">平均単価 ${t.n ? yen(t.w / t.n) : "—"}</div></div>
+        <div class="kpi"><div class="k">諸経費</div><div class="v">${yen(t.e)}</div><div class="s">原価合計 ${yen(t.cost)}</div></div>
+        <div class="kpi"><div class="k">${t.hasInv ? "請求額" : "見積額"}</div><div class="v">${t.hasInv ? yen(t.inv) : t.hasEst ? yen(t.est) : "—"}</div><div class="s">${t.hasInv && t.hasEst ? "見積 " + yen(t.est) : t.hasInv ? "請求済み" : t.hasEst ? "請求はまだ" : "見積・請求の登録なし"}</div></div>
+        <div class="kpi"><div class="k">${t.hasInv ? "粗利" : "見込み粗利"}</div><div class="v ${prof < 0 ? "neg" : (t.hasInv || t.hasEst) ? "pos" : ""}">${(t.hasInv || t.hasEst) ? yen(prof) : "—"}</div><div class="s">粗利率 ${(t.hasInv || t.hasEst) ? pct(prof, t.hasInv ? t.inv : t.est) : "—"}</div></div>
+      </div>
+      <div class="cols">
+        <div class="stack" style="gap:18px">
+          <form class="panel" id="siteForm">
+            <h2>現場の情報</h2>
+            <div class="stack">
+              <label class="field"><span class="lbl">現場名</span><input type="text" id="sf-name" required></label>
+              <label class="field"><span class="lbl">施主・元請</span><input type="text" id="sf-client" placeholder="例：〇〇工務店"></label>
+              <label class="field"><span class="lbl">状態</span><select id="sf-status"><option>進行中</option><option>完了</option></select></label>
+            </div>
+            <div class="actions"><button type="submit">現場の情報を保存</button><span class="hint" id="sf-msg"></span></div>
+          </form>
+
+          <div class="panel">
+            <h2>見積書・請求書</h2>
+            <div class="doclist" id="docList"></div>
+            <form id="docForm" class="stack" style="margin-top:12px" autocomplete="off">
+              <div class="grid2">
+                <label class="field"><span class="lbl">種類</span><select id="d-kind"><option>見積</option><option>請求</option></select></label>
+                <label class="field"><span class="lbl">日付</span><input type="date" id="d-date" required></label>
+              </div>
+              <div class="grid2">
+                <label class="field"><span class="lbl">番号</span><input type="text" id="d-no" placeholder="例：Q-2026-031"></label>
+                <label class="field"><span class="lbl">金額（税抜・円）</span><input type="number" id="d-amt" min="0" step="1" inputmode="numeric" required placeholder="850000"></label>
+              </div>
+              <label class="field"><span class="lbl">メモ</span><input type="text" id="d-note" placeholder="例：追加工事分"></label>
+              <label class="field" id="d-filebox"><span class="lbl">ファイル（PDF・写真）</span><input type="file" id="d-file" accept="application/pdf,image/png,image/jpeg,image/webp"></label>
+              <p class="hint" id="d-filehint"></p>
+              <div class="actions" style="margin-top:0"><button type="submit" class="primary">登録する</button><span class="hint" id="d-msg"></span></div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>業者ごとの外注</h2>
+            <div id="vendorBox"></div>
+          </div>
+        </div>
+        <div><h2 class="sec">この現場の日報</h2><div id="siteReports"></div></div>
+      </div>`;
+
+    $("#back").onclick = () => { openSiteId = null; renderSiteIndex(); };
+    $("#sf-name").value = s.name; $("#sf-client").value = s.client || ""; $("#sf-status").value = s.status || "進行中";
+    $("#siteForm").onsubmit = async ev => {
+      ev.preventDefault();
+      const name = norm($("#sf-name").value), m = $("#sf-msg");
+      if (!name) { m.textContent = "現場名を入れてください。"; return; }
+      if (S.sites.some(x => x.id !== s.id && norm(x.name) === name)) { m.textContent = "同じ名前の現場がすでにあります。"; return; }
+      try { const { id: _omit, ...rest } = s; await db.doc("sites/" + s.id).set({ ...rest, name, client: norm($("#sf-client").value), status: $("#sf-status").value }); m.textContent = "保存しました。"; }
+      catch { m.textContent = "保存できませんでした。"; }
+    };
+
+    // vendors
+    const vk = Object.keys(byVendor).sort((a, b) => byVendor[b].c - byVendor[a].c);
+    $("#vendorBox").innerHTML = vk.length
+      ? `<dl class="sum" style="margin-top:0;border:0;padding:0">${vk.map(k => `<dt>${esc(k)}（${nin(byVendor[k].n)}）</dt><dd>${yen(byVendor[k].c)}</dd>`).join("")}<dt class="tot">合計（${nin(t.n)}）</dt><dd class="tot">${yen(t.w)}</dd></dl>`
+      : '<p class="hint">外注の記録はまだありません。</p>';
+
+    // docs
+    const dl = $("#docList");
+    if (!ds.length) dl.innerHTML = '<p class="hint" style="margin:0">まだ登録がありません。下の欄から見積書・請求書の金額とファイルを登録できます。</p>';
+    ds.forEach(d => {
+      const c = document.createElement("div"); c.className = "card";
+      const file = d.assetId && /^[0-9a-f]{32}$/.test(d.assetId) ? `<a href="/_blob/${d.assetId}" target="_blank" rel="noopener">${esc(d.fileName || "ファイルを開く")}</a>` : "";
+      c.innerHTML = `<div><span class="pill ${d.kind === "請求" ? "sei" : "mi"}">${esc(d.kind)}</span>　<span class="num" style="font-size:.85rem">${esc(fmtDay(d.date || ""))}</span>${d.no ? `　<span class="meta">${esc(d.no)}</span>` : ""}
+          ${d.note ? `<div class="meta">${esc(d.note)}</div>` : ""}${file ? `<div style="font-size:.85rem">${file}</div>` : ""}</div>
+        <div class="amt">${yen(num(d.amount))}<div class="meta">税込 ${yen(Math.floor(num(d.amount) * 1.1))}</div><span class="del"></span></div>`;
+      const del = $(".del", c);
+      const paint = () => {
+        del.innerHTML = "";
+        if (pendingDelete === d.id) {
+          const box2 = document.createElement("span"); box2.className = "confirm";
+          box2.innerHTML = `消しますか？ <button type="button" class="danger">消す</button><button type="button">やめる</button>`;
+          const [yes, no] = box2.querySelectorAll("button");
+          yes.onclick = async () => {
+            yes.disabled = true;
+            try { await db.doc("docs/" + d.id).delete(); if (d.assetId && assets) { try { await assets.delete(d.assetId); } catch {} } }
+            catch { status("削除できませんでした。権限を確認してください。", true); }
+            pendingDelete = null;
+          };
+          no.onclick = () => { pendingDelete = null; paint(); };
+          del.append(box2);
+        } else {
+          const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.style.fontSize = ".8rem"; b.textContent = "消す";
+          b.onclick = () => { pendingDelete = d.id; paint(); };
+          del.append(b);
+        }
+      };
+      paint();
+      dl.append(c);
+    });
+
+    $("#d-date").value = today();
+    if (!assets) { $("#d-filebox").hidden = true; $("#d-filehint").textContent = "ファイルの添付は、このページの編集者だけができます。金額の登録はできます。"; }
+    $("#docForm").onsubmit = async ev => {
+      ev.preventDefault();
+      const m = $("#d-msg"), file = $("#d-file").files[0];
+      const body = { siteId: s.id, kind: $("#d-kind").value, date: $("#d-date").value, no: norm($("#d-no").value), amount: num($("#d-amt").value), note: norm($("#d-note").value), createdAt: new Date().toISOString() };
+      if (!body.date) { m.textContent = "日付を入れてください。"; return; }
+      m.textContent = file ? "ファイルを上げています…" : "登録しています…";
+      try {
+        if (file && assets) {
+          const type = file.type || (/\.pdf$/i.test(file.name) ? "application/pdf" : "");
+          const up = await assets.upload(file, type ? { type } : undefined);
+          body.assetId = up.id; body.fileName = file.name;
+        }
+        await db.collection("docs").doc().set(body);
+        m.textContent = "登録しました。";
+      } catch (e) {
+        m.textContent = e?.code === "too_large" ? "ファイルが大きすぎます（20MBまで）。" : e?.code === "unsupported_type" ? "PDFか写真（JPG・PNG）を選んでください。" : "登録できませんでした。もう一度お試しください。";
+      }
+    };
+
+    const sr = $("#siteReports");
+    if (!rs.length) sr.innerHTML = '<div class="empty">この現場の日報はまだありません。</div>';
+    rs.forEach(r => sr.append(reportCard(r, false)));
+  }
+
+  // ---------- render: 収支 ----------
+  function renderShushi() {
+    const all = S.sites.map(s => ({ s, t: siteTotals(s.id) }));
+    const sum = all.reduce((a, { t }) => ({ n: a.n + t.n, w: a.w + t.w, e: a.e + t.e, inv: a.inv + t.inv, est: a.est + t.est, invCost: a.invCost + (t.hasInv ? t.cost : 0) }), { n: 0, w: 0, e: 0, inv: 0, est: 0, invCost: 0 });
+    const m = today().slice(0, 7);
+    const mon = monthRows().find(r => r.m === m) || { n: 0, w: 0, e: 0, inv: 0 };
+    $("#kpis").innerHTML = `
+      <div class="kpi"><div class="k">今月の外注</div><div class="v">${yen(mon.w)}</div><div class="s">${nin(mon.n)}</div></div>
+      <div class="kpi"><div class="k">今月の諸経費</div><div class="v">${yen(mon.e)}</div><div class="s">${esc(m.replace("-", "年"))}月</div></div>
+      <div class="kpi"><div class="k">今月の請求</div><div class="v">${yen(mon.inv)}</div><div class="s">請求書の日付で集計</div></div>
+      <div class="kpi"><div class="k">請求済み現場の粗利</div><div class="v ${sum.inv - sum.invCost < 0 ? "neg" : "pos"}">${yen(sum.inv - sum.invCost)}</div><div class="s">粗利率 ${pct(sum.inv - sum.invCost, sum.inv)}</div></div>`;
+
+    const body = all.sort((a, b) => (a.s.status === "完了") - (b.s.status === "完了") || b.t.cost - a.t.cost).map(({ s, t }) => `<tr class="click" data-id="${esc(s.id)}" tabindex="0">
+      <td>${esc(s.name)}</td><td><span class="pill ${s.status === "完了" ? "done" : "go"}">${esc(s.status || "進行中")}</span></td>
+      <td class="n">${nin(t.n)}</td><td class="n">${yen(t.w)}</td><td class="n">${yen(t.e)}</td><td class="n">${yen(t.cost)}</td>
+      <td class="n">${t.hasEst ? yen(t.est) : "—"}</td><td class="n">${t.hasInv ? yen(t.inv) : "—"}</td>
+      <td class="n ${(t.hasInv ? t.profit : t.forecast) < 0 ? "neg" : ""}">${t.hasInv ? yen(t.profit) : t.hasEst ? "見込 " + yen(t.forecast) : "—"}</td>
+      <td class="n">${t.hasInv ? pct(t.profit, t.inv) : t.hasEst ? pct(t.forecast, t.est) : "—"}</td></tr>`).join("");
+    $("#tSites").innerHTML = `<thead><tr><th>現場名</th><th>状態</th><th class="n">外注人工</th><th class="n">外注費</th><th class="n">諸経費</th><th class="n">原価計</th><th class="n">見積額</th><th class="n">請求額</th><th class="n">粗利</th><th class="n">粗利率</th></tr></thead>
+      <tbody>${body || '<tr><td colspan="10" style="color:var(--muted)">日報を保存すると、現場ごとの収支がここに並びます。</td></tr>'}</tbody>
+      ${all.length ? `<tfoot><tr><td>合計</td><td></td><td class="n">${nin(sum.n)}</td><td class="n">${yen(sum.w)}</td><td class="n">${yen(sum.e)}</td><td class="n">${yen(sum.w + sum.e)}</td><td class="n">${yen(sum.est)}</td><td class="n">${yen(sum.inv)}</td><td class="n">${yen(sum.inv - sum.invCost)}</td><td class="n">${pct(sum.inv - sum.invCost, sum.inv)}</td></tr></tfoot>` : ""}`;
+    $("#tSites").querySelectorAll("tr.click").forEach(tr => {
+      const open = () => { openSiteId = tr.dataset.id; location.hash = "genba"; };
+      tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter") open(); };
+    });
+
+    const mr = monthRows();
+    $("#tMonths").innerHTML = `<thead><tr><th>月</th><th class="n">外注人工</th><th class="n">外注費</th><th class="n">諸経費</th><th class="n">原価計</th><th class="n">請求（売上）</th><th class="n">差引</th></tr></thead>
+      <tbody>${mr.map(r => `<tr><td class="n" style="text-align:left">${esc(r.m.replace("-", "年"))}月</td><td class="n">${nin(r.n)}</td><td class="n">${yen(r.w)}</td><td class="n">${yen(r.e)}</td><td class="n">${yen(r.w + r.e)}</td><td class="n">${yen(r.inv)}</td><td class="n ${r.inv - r.w - r.e < 0 ? "neg" : "pos"}">${yen(r.inv - r.w - r.e)}</td></tr>`).join("") || '<tr><td colspan="7" style="color:var(--muted)">まだ記録がありません。</td></tr>'}</tbody>`;
+  }
+  function monthRows() {
+    const M = {};
+    const g = k => (M[k] ||= { m: k, n: 0, w: 0, e: 0, inv: 0 });
+    S.reports.forEach(r => { if (!r.date) return; const t = rTotals(r), x = g(r.date.slice(0, 7)); x.n += t.n; x.w += t.w; x.e += t.e; });
+    S.docs.forEach(d => { if (d.kind === "請求" && d.date) g(d.date.slice(0, 7)).inv += num(d.amount); });
+    return Object.values(M).sort((a, b) => b.m.localeCompare(a.m));
+  }
+
+  // ---------- CSV ----------
+  const csvCell = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const toCsv = rows => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  async function saveCsv(name, rows) {
+    const m = $("#csvMsg");
+    if (!downloads) { m.textContent = "この画面ではファイルを保存できません。"; return; }
+    try { await downloads.save({ filename: name, data: toCsv(rows) }); m.textContent = "保存しました。"; }
+    catch (e) { m.textContent = e?.code === "declined" ? "保存をやめました。" : "保存できませんでした。"; }
+  }
+  $("#csvSites").onclick = () => saveCsv(`現場別収支_${today()}.csv`, [
+    ["現場名", "施主・元請", "状態", "稼働日数", "外注人工", "外注費", "諸経費", "原価計", "見積額", "請求額", "粗利(請求-原価)"],
+    ...S.sites.map(s => { const t = siteTotals(s.id); return [s.name, s.client || "", s.status || "", t.days, t.n, t.w, t.e, t.cost, t.est, t.inv, t.hasInv ? t.profit : ""]; })
+  ]);
+  $("#csvLines").onclick = () => {
+    const rows = [["日付", "現場名", "記入者", "作業内容", "区分", "業者名・項目", "人数", "単価", "金額"]];
+    [...S.reports].sort((a, b) => (a.date || "").localeCompare(b.date || "")).forEach(r => {
+      (r.workers || []).forEach(w => rows.push([r.date, siteName(r), r.author || "", r.work || "", "外注", w.name, num(w.count), num(w.price), num(w.count) * num(w.price)]));
+      (r.expenses || []).forEach(e => rows.push([r.date, siteName(r), r.author || "", r.work || "", "諸経費", e.item, "", "", num(e.amount)]));
+    });
+    saveCsv(`日報明細_${today()}.csv`, rows);
+  };
+
+  // ---------- render all ----------
+  function renderAll() {
+    renderSiteOptions();
+    const v = location.hash.replace("#", "") || "nippo";
+    if (v === "genba") renderSiteIndex();
+    else if (v === "shushi") renderShushi();
+    else renderReports();
+  }
+
+  // ---------- boot ----------
+  $("#f-month").value = today().slice(0, 7);
+  resetForm();
+  route();
+
+  (async () => {
+    const timer = setTimeout(() => status("保存先にまだつながりません。通信を確認してください。", true), 10000);
+    db = await claude.use("db");
+    if (!db) { clearTimeout(timer); status("保存先が使えません。claude.ai にログインして開いてください。", true); $("#rsave").disabled = true; return; }
+    claude.use("assets").then(a => { assets = a; if (openSiteId) renderSiteDetail(); });
+    claude.use("downloads").then(d => { downloads = d; $("#csvBox").hidden = !d; });
+    claude.use("user").then(async u => { if (!u) return; const w = await u.can("data.write"); if (w === false) { canWrite = false; $("#rsave").disabled = true; $("#rmsg").textContent = "閲覧のみの権限です。日報を書くには編集できる権限が必要です。"; } });
+
+    let pendingRender = 0;
+    const schedule = () => { cancelAnimationFrame(pendingRender); pendingRender = requestAnimationFrame(renderAll); };
+    const sub = (name) => db.collection(name).onSnapshot(snap => {
+      S[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      loaded[name] = true;
+      if (Object.values(loaded).every(Boolean)) { clearTimeout(timer); status(`日報 ${S.reports.length} 件・現場 ${S.sites.length} 件`); }
+      schedule();
+    }, e => { clearTimeout(timer); status(e?.code === "revoked" ? "この画面への権限がなくなりました。" : "データを読み込めませんでした。再読み込みしてください。", true); });
+    sub("sites"); sub("reports"); sub("docs");
+  })();
+})();
+</script>
