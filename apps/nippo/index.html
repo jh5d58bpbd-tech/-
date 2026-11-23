@@ -114,6 +114,14 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
 .doclist .card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center }
 .doclist .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right }
 .hint { font-size: .78rem; color: var(--muted); margin: 6px 0 0 }
+.sitehint { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .8rem; color: var(--muted); margin-top: -4px }
+.sitehint:empty { display: none }
+.sitehint button, .pair button.pick { font-size: .8rem; padding: 3px 10px; border-color: var(--accent); color: var(--accent); background: var(--accent-soft) }
+.pairs { margin-bottom: 18px }
+.pairs .pair { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 0; border-top: 1px dotted var(--line); font-size: .88rem }
+.pairs .pair:first-of-type { border-top: 0 }
+.pairs .pair .names { flex: 1 1 260px; min-width: 0 }
+.pairs .pair .ops2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .confirm { display: inline-flex; gap: 6px; align-items: center; font-size: .8rem }
 @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr } .brand h1 { font-size: 1.6rem } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important } }
@@ -145,6 +153,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
           </div>
           <label class="field"><span class="lbl">現場名（同じ名前の日報は同じ現場にまとまります）</span>
             <input type="text" id="r-site" list="siteNames" required placeholder="例：〇〇様邸 LDK改装"></label>
+          <div class="sitehint" id="r-sitehint" aria-live="polite"></div>
           <datalist id="siteNames"></datalist>
           <label class="field"><span class="lbl">作業内容</span><input type="text" id="r-work" placeholder="例：クロス張替え・床CF"></label>
         </div>
@@ -221,10 +230,48 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
   const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
   const WD = ["日", "月", "火", "水", "木", "金", "土"];
   const fmtDay = iso => { const d = new Date(iso + "T00:00:00"); return isNaN(d) ? iso : `${iso.replace(/-/g, ".")}（${WD[d.getDay()]}）`; };
+  // 現場名の照合：全角半角・カタカナひらがな・空白・記号・「様／邸」の違いは同じとみなす
+  const kata2hira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const key = s => kata2hira(String(s || "").normalize("NFKC").toLowerCase())
+    .replace(/[\s・·\-‐―_.,、。()（）「」『』\[\]【】\/]/g, "")
+    .replace(/様|さま|さん|邸|宅|殿|御中/g, "");
+  function lev(a, b) {
+    if (a === b) return 0;
+    let p = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const c = [i];
+      for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      p = c;
+    }
+    return p[b.length];
+  }
+  function similar(a, b) {
+    const x = key(a), y = key(b);
+    if (!x || !y) return false;
+    if (x === y) return true;
+    const mn = Math.min(x.length, y.length), mx = Math.max(x.length, y.length);
+    if (mn >= 2 && (x.includes(y) || y.includes(x))) return true;
+    if (mn < 3) return false;
+    return lev(x, y) <= (mx >= 10 ? 2 : 1);
+  }
+  const namesOf = s => [s.name, ...(s.aliases || [])];
+  const findSiteExact = name => { const k = key(name); return k ? S.sites.find(s => namesOf(s).some(n => key(n) === k)) : undefined; };
+  const similarSites = (name, exceptId) => S.sites.filter(s => s.id !== exceptId && namesOf(s).some(n => similar(name, n)));
+  const markedDifferent = (a, b) => (a.notSame || []).includes(b.id) || (b.notSame || []).includes(a.id);
+  function similarPairs() {
+    const out = [];
+    for (let i = 0; i < S.sites.length; i++) for (let j = i + 1; j < S.sites.length; j++) {
+      const a = S.sites[i], b = S.sites[j];
+      if (markedDifferent(a, b)) continue;
+      if (namesOf(a).some(x => namesOf(b).some(y => similar(x, y)))) out.push([a, b]);
+    }
+    return out;
+  }
+
   const status = (msg, err) => { const el = $("#status"); el.textContent = msg; el.classList.toggle("err", !!err); };
 
   // ---------- state ----------
-  let db = null, assets = null, downloads = null, canWrite = true;
+  let db = null, assets = null, downloads = null, canWrite = true, isEditor = false, okNewName = "";
   const S = { sites: [], reports: [], docs: [] };
   const loaded = { sites: false, reports: false, docs: false };
   let editingId = null, openSiteId = null, pendingDelete = null;
@@ -300,6 +347,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
     $("#rformTitle").textContent = "日報を書く";
     $("#rsave").textContent = "日報を保存";
     $("#rcancel").hidden = true;
+    $("#r-sitehint").innerHTML = ""; okNewName = "";
     calcForm();
   }
   function loadIntoForm(r) {
@@ -317,8 +365,38 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
     $("#rform").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function siteHint() {
+    const box = $("#r-sitehint"); box.innerHTML = "";
+    const name = norm($("#r-site").value);
+    if (!name || !loaded.sites) return;
+    const exact = findSiteExact(name);
+    if (exact) { if (exact.name !== name) box.textContent = `「${exact.name}」の日報としてまとめます。`; return; }
+    const sims = similarSites(name).slice(0, 4);
+    if (!sims.length) { box.textContent = "新しい現場として登録します。"; return; }
+    const p = document.createElement("span"); p.textContent = "似た現場があります。同じ現場なら選んでください："; box.append(p);
+    sims.forEach(s => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = s.name;
+      b.onclick = () => { $("#r-site").value = s.name; siteHint(); };
+      box.append(b);
+    });
+  }
+  $("#r-site").addEventListener("input", siteHint);
+
+  async function mergeSites(fromId, toId, say) {
+    const from = siteById(fromId), to = siteById(toId);
+    if (!from || !to || fromId === toId) return;
+    const rs = S.reports.filter(r => r.siteId === fromId), ds = S.docs.filter(d => d.siteId === fromId);
+    const total = rs.length + ds.length; let i = 0;
+    for (const r of rs) { await db.doc("reports/" + r.id).update({ siteId: toId }); say(`まとめています… ${++i}/${total}`); }
+    for (const d of ds) { await db.doc("docs/" + d.id).update({ siteId: toId }); say(`まとめています… ${++i}/${total}`); }
+    const aliases = [...new Set([...(to.aliases || []), from.name, ...(from.aliases || [])])].filter(n => n !== to.name);
+    const notSame = [...new Set([...(to.notSame || []), ...(from.notSame || [])])].filter(x => x !== toId && x !== fromId);
+    await db.doc("sites/" + toId).update({ aliases, notSame, client: to.client || from.client || "" });
+    await db.doc("sites/" + fromId).delete();
+  }
+
   async function ensureSite(name) {
-    const hit = S.sites.find(s => norm(s.name) === name);
+    const hit = findSiteExact(name);
     if (hit) return hit.id;
     const ref = db.collection("sites").doc();
     await ref.set({ name, client: "", status: "進行中", createdAt: new Date().toISOString() });
@@ -334,6 +412,11 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
     const f = readForm(), msg = $("#rmsg");
     if (!db) { msg.textContent = "保存先につながっていません。再読み込みしてください。"; return; }
     if (!f.date || !f.siteName) { msg.textContent = "日付と現場名を入れてください。"; return; }
+    if (!findSiteExact(f.siteName) && similarSites(f.siteName).length && okNewName !== f.siteName) {
+      okNewName = f.siteName; siteHint(); $("#r-site").focus();
+      msg.textContent = "似た現場があります。同じ現場なら現場名の下の候補を選んでください。別の現場なら、もう一度「日報を保存」を押してください。";
+      return;
+    }
     $("#rsave").disabled = true; msg.textContent = "保存しています…";
     try {
       const siteId = await ensureSite(f.siteName);
@@ -430,6 +513,46 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
     box.hidden = !!openSiteId; $("#siteDetail").hidden = !openSiteId;
     if (openSiteId) { renderSiteDetail(); return; }
     box.innerHTML = "";
+    const pairs = isEditor ? similarPairs() : [];
+    if (pairs.length) {
+      const pb = document.createElement("div"); pb.className = "panel pairs";
+      pb.innerHTML = `<h2>名前の似ている現場が ${pairs.length} 組あります</h2><p class="hint" style="margin:-6px 0 8px">同じ現場なら、残す名前を押してまとめます。日報と書類はすべて残す現場へ移り、消えた名前は別名として覚えるので、次からその名前で書いても同じ現場に入ります。</p>`;
+      pairs.forEach(([a, b]) => {
+        const row = document.createElement("div"); row.className = "pair";
+        const cnt = s => S.reports.filter(r => r.siteId === s.id).length;
+        const paintPair = () => {
+          row.innerHTML = "";
+          const names = document.createElement("div"); names.className = "names";
+          names.textContent = `「${a.name}」（日報 ${cnt(a)} 件） ／ 「${b.name}」（日報 ${cnt(b)} 件）`;
+          const ops = document.createElement("div"); ops.className = "ops2";
+          [[a, b], [b, a]].forEach(([keep, drop]) => {
+            const btn = document.createElement("button"); btn.type = "button"; btn.className = "pick"; btn.textContent = `「${keep.name}」にまとめる`;
+            btn.onclick = () => {
+              ops.innerHTML = "";
+              const q = document.createElement("span"); q.className = "confirm";
+              q.textContent = `「${drop.name}」の日報と書類を「${keep.name}」へ移します。`;
+              const yes = document.createElement("button"); yes.type = "button"; yes.className = "danger"; yes.textContent = "まとめる";
+              const no = document.createElement("button"); no.type = "button"; no.textContent = "やめる";
+              yes.onclick = async () => {
+                yes.disabled = no.disabled = true;
+                try { await mergeSites(drop.id, keep.id, t => { q.textContent = t; }); status(`「${drop.name}」を「${keep.name}」にまとめました。`); }
+                catch { status("まとめる途中で止まりました。もう一度同じ操作をすると続きから移せます。", true); }
+              };
+              no.onclick = paintPair;
+              q.append(" ", yes, no); ops.append(q);
+            };
+            ops.append(btn);
+          });
+          const diff = document.createElement("button"); diff.type = "button"; diff.className = "link"; diff.textContent = "別の現場";
+          diff.onclick = async () => { try { await db.doc("sites/" + a.id).update({ notSame: [...new Set([...(a.notSame || []), b.id])] }); } catch { status("保存できませんでした。", true); } };
+          ops.append(diff);
+          row.append(names, ops);
+        };
+        paintPair();
+        pb.append(row);
+      });
+      box.append(pb);
+    }
     const h = document.createElement("h2"); h.className = "sec"; h.textContent = "現場一覧"; box.append(h);
     if (!S.sites.length) {
       box.insertAdjacentHTML("beforeend", '<div class="empty"><b>まだ現場がありません。</b><br>日報を保存すると、その現場名でここに現場が作られます。現場を開くと、かかった人工・外注費・諸経費の合計と、見積書・請求書の添付、収支が見られます。</div>');
@@ -484,7 +607,15 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
               <label class="field"><span class="lbl">施主・元請</span><input type="text" id="sf-client" placeholder="例：〇〇工務店"></label>
               <label class="field"><span class="lbl">状態</span><select id="sf-status"><option>進行中</option><option>完了</option></select></label>
             </div>
+            <p class="hint" id="sf-alias"></p>
             <div class="actions"><button type="submit">現場の情報を保存</button><span class="hint" id="sf-msg"></span></div>
+            <div id="sf-merge" hidden>
+              <h3>別の現場にまとめる</h3>
+              <div class="stack">
+                <label class="field"><span class="lbl">この現場の日報と書類を移す先</span><select id="sf-target"></select></label>
+                <div class="actions" style="margin-top:0" id="sf-mergeops"><button type="button" id="sf-mergebtn">まとめる</button><span class="hint" id="sf-mmsg"></span></div>
+              </div>
+            </div>
           </form>
 
           <div class="panel">
@@ -524,6 +655,29 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
       try { const { id: _omit, ...rest } = s; await db.doc("sites/" + s.id).set({ ...rest, name, client: norm($("#sf-client").value), status: $("#sf-status").value }); m.textContent = "保存しました。"; }
       catch { m.textContent = "保存できませんでした。"; }
     };
+
+    // 別名とまとめる操作
+    $("#sf-alias").textContent = (s.aliases || []).length ? `まとめた別名：${s.aliases.join("、")}（この名前で書いた日報もこの現場に入ります）` : "";
+    if (isEditor && S.sites.length > 1) {
+      $("#sf-merge").hidden = false;
+      const sel = $("#sf-target"), sims = similarSites(s.name, s.id);
+      const others = S.sites.filter(x => x.id !== s.id).sort((a, b) => sims.includes(b) - sims.includes(a) || a.name.localeCompare(b.name, "ja"));
+      others.forEach(x => { const o = document.createElement("option"); o.value = x.id; o.textContent = (sims.includes(x) ? "（似ている）" : "") + x.name; sel.append(o); });
+      $("#sf-mergebtn").onclick = () => {
+        const to = siteById(sel.value); if (!to) return;
+        const ops = $("#sf-mergeops"); ops.innerHTML = "";
+        const q = document.createElement("span"); q.className = "confirm"; q.textContent = `「${s.name}」を「${to.name}」にまとめ、この現場は消えます。`;
+        const yes = document.createElement("button"); yes.type = "button"; yes.className = "danger"; yes.textContent = "まとめる";
+        const no = document.createElement("button"); no.type = "button"; no.textContent = "やめる";
+        yes.onclick = async () => {
+          yes.disabled = no.disabled = true;
+          try { const name = s.name; await mergeSites(s.id, to.id, t => { q.textContent = t; }); openSiteId = to.id; status(`「${name}」を「${to.name}」にまとめました。`); renderSiteIndex(); }
+          catch { status("まとめる途中で止まりました。もう一度同じ操作をすると続きから移せます。", true); }
+        };
+        no.onclick = () => renderSiteDetail();
+        q.append(" ", yes, no); ops.append(q);
+      };
+    }
 
     // vendors
     const vk = Object.keys(byVendor).sort((a, b) => byVendor[b].c - byVendor[a].c);
@@ -671,7 +825,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--ink) }
     if (!db) { clearTimeout(timer); status("保存先が使えません。claude.ai にログインして開いてください。", true); $("#rsave").disabled = true; return; }
     claude.use("assets").then(a => { assets = a; if (openSiteId) renderSiteDetail(); });
     claude.use("downloads").then(d => { downloads = d; $("#csvBox").hidden = !d; });
-    claude.use("user").then(async u => { if (!u) return; const w = await u.can("data.write"); if (w === false) { canWrite = false; $("#rsave").disabled = true; $("#rmsg").textContent = "閲覧のみの権限です。日報を書くには編集できる権限が必要です。"; } });
+    claude.use("user").then(async u => { if (!u) return; isEditor = !!(await u.canEdit()); renderAll(); const w = await u.can("data.write"); if (w === false) { canWrite = false; $("#rsave").disabled = true; $("#rmsg").textContent = "閲覧のみの権限です。日報を書くには編集できる権限が必要です。"; } });
 
     let pendingRender = 0;
     const schedule = () => { cancelAnimationFrame(pendingRender); pendingRender = requestAnimationFrame(renderAll); };
