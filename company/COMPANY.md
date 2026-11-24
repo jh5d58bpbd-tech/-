@@ -71,6 +71,7 @@
 - 和風の絵柄：焚き火を囲む人、富士山と松、ドット絵の寺と日の丸、鶴と山の「檜山商店（HIYAMA）」
 - 文字入りのイラスト（LIFE で始まる英文）
 - 刺繍用の3行ロゴ：brand/merry-the-south-3line-embroidery.png（刺繍プリント.com の目安「線1mm以上・線間2mm以上・文字高さ8mm以上」に合わせて字間と行間を広げた版。横55〜60mm向け）
+- アウトライン付き3行ロゴ（案。本人がアウトラインを検討中）：brand/merry-the-south-3line-outline-cream.png（オリーブ文字＋生成りの縁）、brand/merry-the-south-3line-outline-olive.png（生成りの文字＋オリーブの縁）。刺繍の目安をすべて満たすのは横70mm（縦約41mm、私の計算）。糸の色は3色から4色に増える
 - 3行版ロゴ（MERRY / THE / $OUTH）：brand/merry-the-south-3line-a.png（左そろえ）と -b.png（THE の字間を広げて幅をそろえた版）。ニット帽の正面向き。ニット帽にはA（左そろえ）を使うと本人が決定。その後、THE を中央に置いた版 -c.png と、行間を狭くした -c-tight.png を依頼（採用は未確認）
 - 各ロゴ・ブランド名の関係（どれが主ブランドか）：不明
 - 絵柄の作り方（自作か、生成ツールか）と商用利用の可否：不明
