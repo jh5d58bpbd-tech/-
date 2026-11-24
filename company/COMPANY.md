@@ -70,6 +70,7 @@
 - 五角形と木（根まで描いた木）を組み合わせたマーク
 - 和風の絵柄：焚き火を囲む人、富士山と松、ドット絵の寺と日の丸、鶴と山の「檜山商店（HIYAMA）」
 - 文字入りのイラスト（LIFE で始まる英文）
+- 本人の好み（2026年11月24日）：一覧の右上＝3行 A（左そろえ）が良いと回答。刺繍プリント.comの目安に合わせた版 brand/merry-the-south-3line-a-embroidery.png を作成（横60mmで、最も近い隙間約2.0mm、文字の高さ約9.9mm、縦約41mm。私の計算）。横55mmだと隙間が約1.9mmで目安に僅かに足りない
 - 刺繍用の3行ロゴ：brand/merry-the-south-3line-embroidery.png（刺繍プリント.com の目安「線1mm以上・線間2mm以上・文字高さ8mm以上」に合わせて字間と行間を広げた版。横55〜60mm向け）
 - アウトライン付き3行ロゴ（案。本人がアウトラインを検討中）：brand/merry-the-south-3line-outline-cream.png（オリーブ文字＋生成りの縁）、brand/merry-the-south-3line-outline-olive.png（生成りの文字＋オリーブの縁）。刺繍の目安をすべて満たすのは横70mm（縦約41mm、私の計算）。糸の色は3色から4色に増える
 - 縁をくっつけて字間・行間を詰めたアウトライン版（本人の希望）：brand/merry-the-south-3line-outline-tight-cream.png / -olive.png。横60mmで、文字どうしの間隔約2.2mm以上、縁の太さ約1.2mm、文字の高さ約8.8mm、縦約35mm（私の計算。刺繍プリント.comの目安は満たす）
